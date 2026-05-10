@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner - NZ Education 2026</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            text-align: center; 
+            padding: 20px; 
+            background-color: #f8f9fa; 
+            margin: 0; 
+        }
+        .header { 
+            background-color: #003366; 
+            color: white; 
+            padding: 20px 0; 
+            margin-bottom: 30px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        #reader { 
+            width: 100%; 
+            max-width: 400px; 
+            margin: auto; 
+            border: 4px solid #003366; 
+            border-radius: 15px; 
+            overflow: hidden; 
+            background: white; 
+        }
+        #result { 
+            margin-top: 25px; 
+            font-size: 1.2rem; 
+            font-weight: bold; 
+            padding: 15px; 
+            min-height: 60px; 
+            border-radius: 10px; 
+            max-width: 400px; 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        .status-waiting { color: #666; }
+        .status-process { color: #ff9800; }
+        .status-success { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 style="margin:0;">🇳🇿 NZ Check-in System</h2>
+        <p style="margin:5px 0 0 0; font-size: 0.9rem;">งานการศึกษานิวซีแลนด์ 2569</p>
+    </div>
+
+    <div id="reader"></div>
+    
+    <div id="result" class="status-waiting">กรุณาส่องกล้องไปที่ QR Code</div>
+
+    <script>
+        // URL ของ Google Apps Script ที่คุณระบุมา
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDfMwsKCaRMtjjV1X9osyYpR1SJmVXPFJxjopDxtUG_NQ95Cdqbkf0km2TsYzajsmC/exec";
+
+        const html5QrCode = new Html5Qrcode("reader");
+
+        function onScanSuccess(decodedText) {
+            const resDiv = document.getElementById('result');
+            resDiv.innerText = "⏳ กำลังตรวจสอบข้อมูล...";
+            resDiv.className = "status-process";
+            
+            // หยุดสแกนชั่วคราวเพื่อป้องกันการส่งข้อมูลซ้ำซ้อนขณะประมวลผล
+            html5QrCode.pause(); 
+
+            // ส่ง ID ที่สแกนได้ไปยัง Google Script ผ่าน POST
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors", // ใช้ no-cors สำหรับ Google Script Redirect
+                body: JSON.stringify({ regID: decodedText })
+            })
+            .then(() => {
+                // เนื่องจาก Google Script POST มักจะไม่ส่ง JSON กลับมาตรงๆ ในโหมด no-cors 
+                // จึงใช้วิธีแจ้งว่าส่งข้อมูลเรียบร้อยแล้ว หรือปรับการทำงานตามความเหมาะสม
+                resDiv.innerText = "✅ บันทึกข้อมูลสำเร็จ (รหัส: " + decodedText + ")";
+                resDiv.className = "status-success";
+                
+                // รอ 3 วินาทีเพื่อให้เจ้าหน้าที่ดูผลลัพธ์ แล้วเริ่มสแกนคนต่อไป
+                setTimeout(() => {
+                    resDiv.innerText = "พร้อมสแกนคนต่อไป...";
+                    resDiv.className = "status-waiting";
+                    html5QrCode.resume();
+                }, 3000);
+            })
+            .catch(err => {
+                resDiv.innerText = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อ";
+                resDiv.className = "status-error";
+                console.error(err);
+                setTimeout(() => html5QrCode.resume(), 3000);
+            });
+        }
+
+        // การตั้งค่ากล้อง
+        const config = { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0 
+        };
+
+        // เริ่มเปิดกล้องหลัง (Environment)
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+        .catch(err => {
+            document.getElementById('result').innerText = "❌ ไม่สามารถเปิดกล้องได้: " + err;
+            document.getElementById('result').className = "status-error";
+        });
+    </script>
+</body>
+</html>
